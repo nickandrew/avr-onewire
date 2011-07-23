@@ -13,6 +13,15 @@
 
 struct onewire onewire0;
 
+static void _starttimer(void)
+{
+	// Clear any pending timer interrupt
+	TIFR |= 1<<OCF0A;
+	// Start the timer counting
+	TCNT0 = 0;
+	TCCR0B |= PRESCALER;
+}
+
 void onewire0_init(void)
 {
 	onewire0.state = OW0_IDLE;
@@ -28,17 +37,11 @@ void onewire0_init(void)
 	// Enable CTC mode
 	TCCR0A |= ( 1<<WGM01 );
 	TCCR0B &= ~PRESCALER;
+	OCR0A = 20;   // Initial value, to interrupt once every 20us
 	OCR0B = 0xff; // Not used
 	TIMSK |= 1<<OCIE0A;
-}
 
-static void _starttimer(void)
-{
-	// Clear any pending timer interrupt
-	TIFR |= 1<<OCF0A;
-	// Start the timer counting
-	TCNT0 = 0;
-	TCCR0B |= PRESCALER;
+	_starttimer();
 }
 
 static void _release(void)
@@ -53,99 +56,69 @@ static void _pulllow(void)
 
 static void _writebit(uint8_t value)
 {
-	if (onewire0.state == OW0_IDLE) {
-		TCNT0 = 0;
-		// Wait 4us until starting the bit
-		OCR0A = 4;
-	}
-	else if (onewire0.state != OW0_WAIT) {
-		// Wait until it hits OW0_WAIT
-		while (onewire0.state != OW0_WAIT) { };
-	}
+	while (onewire0.state != OW0_IDLE) { }
 
-	if (value) {
-		onewire0.state = OW0_WRITE1_A;
-	} else {
-		onewire0.state = OW0_WRITE0_A;
-	}
+	onewire0.current_byte = value ? 1 : 0;
+	onewire0.bit_id = 0;
+	onewire0.state = OW0_START;
 }
 
 static uint8_t _readbit(void)
 {
-	if (onewire0.state == OW0_IDLE) {
-		TCNT0 = 0;
-		// Wait 4us until starting the bit
-		OCR0A = 4;
-	}
-	else if (onewire0.state != OW0_WAIT) {
-		// Wait until it hits OW0_WAIT
-		while (onewire0.state != OW0_WAIT) { };
-	}
+	while (onewire0.state != OW0_IDLE) { }
 
-	onewire0.state = OW0_READ_A;
+	onewire0.current_byte = 1; // Write a 1 bit to sample input
+	onewire0.bit_id = 0;
+	onewire0.state = OW0_START;
 
-	while (onewire0.state != OW0_IDLE) { };
+	while (onewire0.state != OW0_IDLE) { }
 
-	return onewire0.current_byte & 0x80;
+	return (onewire0.current_byte & 0x80) ? 1 : 0;
 }
+
+/*  void onewire0_writebyte(uint8_t byte)
+**
+**  Write 8 bits to the bus.
+**  This function takes from 505us to 560us depending on idle state.
+**  It returns from 10us to 55us before the next time slot starts.
+*/
 
 void onewire0_writebyte(uint8_t byte)
 {
-	uint8_t bit;
-
-	_starttimer();
-
-	for (bit = 0; bit < 8; bit++) {
-		_writebit(byte & 1);
-		while (onewire0.state != OW0_IDLE) { };
-		byte >>= 1;
-	}
-}
-
-void onewire0_writebyte2(uint8_t byte)
-{
-	// Make sure all work is done before continuing
 	while (onewire0.state != OW0_IDLE) { }
 
-	onewire0.bit_id = 0;
 	onewire0.current_byte = byte;
-	_writebit(byte & 0);
+	onewire0.bit_id = 8;
+	onewire0.state = OW0_START;
 }
+
+/*  uint8_t onewire0_readbyte()
+**
+**  Read 8 bits from the bus and return the byte value.
+**  This function takes from 505us to 560us depending on idle state.
+**  It returns soon after sampling the last data bit, before the
+**  end of the last time slot.
+*/
 
 uint8_t onewire0_readbyte(void)
 {
-	uint8_t bit;
-
-	_starttimer();
-
-	// Wait until device is idle
 	while (onewire0.state != OW0_IDLE) { }
 
-	for (bit = 0; bit < 8; bit++) {
-		onewire0.state = OW0_READ_A;
-		while (onewire0.state != OW0_WAIT) { }
-	}
+	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 8 times
+	onewire0.bit_id = 8;
+	onewire0.state = OW0_START;
 
-	return onewire0.current_byte;
-}
-
-uint8_t onewire0_readbyte2(void) {
-	_starttimer();
-
-	// Wait until device is idle
-	while (onewire0.state != OW0_IDLE) { }
-
-	onewire0.process = OW0_READBYTE;
-	onewire0.state = OW0_READ_A;
-
-	// Wait until byte completely read
 	while (onewire0.state != OW0_IDLE) { }
 
 	return onewire0.current_byte;
 }
 
-// Poll the current state. If OW0_IDLE, that means a read or write
-// bit has finished, and so do whatever is next in our process.
+/*  void onewire0_poll(void)
+**
+**  Fast poll function.
+**  If the bus is busy, just return.
+**  If the bus is idle, then run more protocol if possible.
+*/
 
 void onewire0_poll(void)
 {
@@ -158,26 +131,23 @@ void onewire0_poll(void)
 		case OW0_PIDLE:
 			// Do nothing
 			break;
+	}
+}
 
-		case OW0_WRITEBYTE:
-			if (onewire0.bit_id < 7) {
-				onewire0.current_byte >>= 1;
-				onewire0.bit_id ++;
-				_writebit(onewire0.current_byte & 0);
-			} else {
-				onewire0.process = OW0_PIDLE;
-			}
-			break;
+// Prepare for the next bit of I/O.
+// If we're processing a byte, then go to state OW0_START for the next bit.
+// Otherwise, enter idle state upon next interrupt.
 
-		case OW0_READBYTE:
-			if (onewire0.bit_id < 7) {
-				onewire0.bit_id ++;
-				_readbit();
-			} else {
-				// Answer is in onewire0.current_byte
-				onewire0.process = OW0_PIDLE;
-			}
-			break;
+static inline void _nextbit(void) {
+	// Perform the next action in the meta-process
+	if (onewire0.bit_id) {
+		// Continue reading/writing a byte with the next bit
+		onewire0.state = OW0_START;
+		-- onewire0.bit_id;
+	} else {
+		// The next state will be idle unless mainline code changes it
+		// before the next interrupt (e.g. more bytes to send).
+		onewire0.state = OW0_IDLE;
 	}
 }
 
@@ -187,52 +157,48 @@ ISR(TIMER0_COMPA_vect)
 {
 	switch(onewire0.state) {
 		case OW0_IDLE:
-			// Do nothing
+			// Wait 20us until the next interrupt
+			OCR0A = 20;
 			break;
 
-		case OW0_WRITE0_A:
+		case OW0_START:
 			_pulllow();
-			OCR0A = GAP_C;
-			onewire0.state = OW0_WRITE0_B;
+			if (onewire0.current_byte & 1) {
+				// Write a 1-bit or read a bit:
+				// 6us low, 9us wait, sample, 55us high
+				OCR0A = GAP_A;
+				onewire0.state = OW0_READWAIT;
+			} else {
+				// Write a 0-bit
+				// 60us low, 10us high
+				OCR0A = GAP_C;
+				onewire0.state = OW0_RELEASE;
+			}
+
+			onewire0.current_byte >>= 1;
 			break;
 
-		case OW0_WRITE0_B:
-			_release();
-			OCR0A = GAP_D;
-			onewire0.state = OW0_WAIT;
-			break;
-
-		case OW0_WRITE1_A:
-			_pulllow();
-			OCR0A = GAP_A;
-			onewire0.state = OW0_WRITE1_B;
-			break;
-
-		case OW0_WRITE1_B:
-			_release();
-			OCR0A = GAP_B;
-			onewire0.state = OW0_WAIT;
-			break;
-
-		case OW0_READ_A:
-			_pulllow();
-			OCR0A = GAP_A;
-			onewire0.state = OW0_READ_B;
-			break;
-
-		case OW0_READ_B:
+		case OW0_READWAIT:
+			// Let the signal go high, wait 9us then sample.
 			_release();
 			OCR0A = GAP_E;
-			onewire0.state = OW0_READ_C;
+			onewire0.state = OW0_SAMPLE;
 			break;
 
-		case OW0_READ_C:
+		case OW0_SAMPLE:
 			// Bits are read from 0 to 7, which means we
-			// have to shift previous contents and store current
-			// input into bit 7
-			onewire0.current_byte = (onewire0.current_byte >> 1) | ((PINB & (PIN)) ? 0x80 : 0);
+			// have to shift current_byte down and store in bit 7
+			// Shifting is done in state OW0_START so no need to do it again here.
+			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
 			OCR0A = GAP_F;
-			onewire0.state = OW0_WAIT;
+			_nextbit();
+			break;
+
+		case OW0_RELEASE:
+			// Let the signal go high for 10us.
+			_release();
+			OCR0A = GAP_D;
+			_nextbit();
 			break;
 
 		case OW0_WAIT:
@@ -249,7 +215,5 @@ ISR(TIMER0_COMPA_vect)
 			break;
 	}
 
-	if (onewire0.state == OW0_IDLE) {
-		// Perform the next action in the meta-process
-	}
+	// Return from interrupt
 }

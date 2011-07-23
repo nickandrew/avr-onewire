@@ -55,21 +55,16 @@
 
 enum onewire0_state {
 	OW0_IDLE,
-	OW0_WRITE0_A,
-	OW0_WRITE0_B,
-	OW0_WRITE1_A,
-	OW0_WRITE1_B,
-	OW0_READ_A,
-	OW0_READ_B,
-	OW0_READ_C,
+	OW0_START,
+	OW0_READWAIT,
+	OW0_SAMPLE,
+	OW0_RELEASE,
 	OW0_WAIT,
 	OW0_DELAY,
 };
 
 enum onewire0_process {
 	OW0_PIDLE,
-	OW0_WRITEBYTE,
-	OW0_READBYTE,
 };
 
 struct onewire {
