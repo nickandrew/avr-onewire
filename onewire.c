@@ -86,7 +86,7 @@ static uint8_t _readbit(void)
 
 	while (onewire0.state != OW0_IDLE) { };
 
-	return onewire0.bit & 0x80;
+	return onewire0.current_byte & 0x80;
 }
 
 void onewire0_writebyte(uint8_t byte)
@@ -108,7 +108,7 @@ void onewire0_writebyte2(uint8_t byte)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.bit_id = 0;
-	onewire0.byte_out = byte;
+	onewire0.current_byte = byte;
 	_writebit(byte & 0);
 }
 
@@ -126,7 +126,7 @@ uint8_t onewire0_readbyte(void)
 		while (onewire0.state != OW0_WAIT) { }
 	}
 
-	return onewire0.bit;
+	return onewire0.current_byte;
 }
 
 uint8_t onewire0_readbyte2(void) {
@@ -141,7 +141,7 @@ uint8_t onewire0_readbyte2(void) {
 	// Wait until byte completely read
 	while (onewire0.state != OW0_IDLE) { }
 
-	return onewire0.bit;
+	return onewire0.current_byte;
 }
 
 // Poll the current state. If OW0_IDLE, that means a read or write
@@ -161,9 +161,9 @@ void onewire0_poll(void)
 
 		case OW0_WRITEBYTE:
 			if (onewire0.bit_id < 7) {
-				onewire0.byte_out >>= 1;
+				onewire0.current_byte >>= 1;
 				onewire0.bit_id ++;
-				_writebit(onewire0.byte_out & 0);
+				_writebit(onewire0.current_byte & 0);
 			} else {
 				onewire0.process = OW0_PIDLE;
 			}
@@ -174,7 +174,7 @@ void onewire0_poll(void)
 				onewire0.bit_id ++;
 				_readbit();
 			} else {
-				// Answer is in onewire0.bit
+				// Answer is in onewire0.current_byte
 				onewire0.process = OW0_PIDLE;
 			}
 			break;
@@ -230,7 +230,7 @@ ISR(TIMER0_COMPA_vect)
 			// Bits are read from 0 to 7, which means we
 			// have to shift previous contents and store current
 			// input into bit 7
-			onewire0.bit = (onewire0.bit >> 1) | ((PINB & (PIN)) ? 0x80 : 0);
+			onewire0.current_byte = (onewire0.current_byte >> 1) | ((PINB & (PIN)) ? 0x80 : 0);
 			OCR0A = GAP_F;
 			onewire0.state = OW0_WAIT;
 			break;

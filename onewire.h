@@ -74,8 +74,7 @@ enum onewire0_process {
 
 struct onewire {
 	volatile enum onewire0_state state;
-	volatile uint8_t bit;
-	volatile uint8_t byte_out;
+	volatile uint8_t current_byte;
 	volatile uint8_t bit_id;
 	volatile enum onewire0_process process;
 	volatile uint8_t delay_count;
