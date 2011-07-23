@@ -9,8 +9,10 @@
 
 #include <stdint.h>
 
-// I/O pin
+// Specify the single I/O pin
+#ifndef PIN
 #define PIN ( 1 << PORTB0 )
+#endif
 
 #ifndef CPU_FREQ
 #define CPU_FREQ 8000000
@@ -19,7 +21,7 @@
 #if CPU_FREQ == 8000000
 // Prescaler CK/8
 #define PRESCALER ( 1<<CS01 )
-// When resetting the devices, use 8us resolution
+// When resetting the devices, use 1us resolution
 #define RESET_PRESCALER ( 1<<CS01 | 1<<CS00)
 #else
 #error "Only CPU_FREQ of 8 MHz is presently supported"
