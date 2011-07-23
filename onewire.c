@@ -76,6 +76,32 @@ static uint8_t _readbit(void)
 	return (onewire0.current_byte & 0x80) ? 1 : 0;
 }
 
+// Start to write 8 bits.
+// Wait for device to be idle before starting.
+// Do not wait for the bits to be sent.
+
+static void _write8(uint8_t byte)
+{
+	while (onewire0.state != OW0_IDLE) { }
+
+	onewire0.current_byte = byte;
+	onewire0.bit_id = 8;
+	onewire0.state = OW0_START;
+}
+
+// Start to read 8 bits.
+// Wait for device to be idle before starting.
+// Do not wait for the bits to arrive.
+
+static void _read8(void)
+{
+	while (onewire0.state != OW0_IDLE) { }
+
+	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 8 times
+	onewire0.bit_id = 8;
+	onewire0.state = OW0_START;
+}
+
 /*  void onewire0_writebyte(uint8_t byte)
 **
 **  Write 8 bits to the bus.
@@ -85,11 +111,7 @@ static uint8_t _readbit(void)
 
 void onewire0_writebyte(uint8_t byte)
 {
-	while (onewire0.state != OW0_IDLE) { }
-
-	onewire0.current_byte = byte;
-	onewire0.bit_id = 8;
-	onewire0.state = OW0_START;
+	_write8(byte);
 }
 
 /*  uint8_t onewire0_readbyte()
@@ -102,11 +124,7 @@ void onewire0_writebyte(uint8_t byte)
 
 uint8_t onewire0_readbyte(void)
 {
-	while (onewire0.state != OW0_IDLE) { }
-
-	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 8 times
-	onewire0.bit_id = 8;
-	onewire0.state = OW0_START;
+	_read8();
 
 	while (onewire0.state != OW0_IDLE) { }
 
