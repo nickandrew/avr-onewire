@@ -22,6 +22,16 @@ static void _starttimer(void)
 	TCCR0B |= PRESCALER;
 }
 
+static void _slowtimer(void)
+{
+	TCCR0B = (TCCR0B & 0xf8) | RESET_PRESCALER;
+}
+
+static void _fasttimer(void)
+{
+	TCCR0B = (TCCR0B & 0xf8) | PRESCALER;
+}
+
 void onewire0_init(void)
 {
 	onewire0.state = OW0_IDLE;
@@ -131,6 +141,23 @@ uint8_t onewire0_readbyte(void)
 	return onewire0.current_byte;
 }
 
+/*  void onewire0_reset(void)
+**
+**  Reset devices on the bus. Wait for the reset process to complete.
+**  Return 1 if there are devices on the bus, else 0.
+*/
+
+uint8_t onewire0_reset(void)
+{
+	while (onewire0.state != OW0_IDLE) { }
+
+	onewire0.state = OW0_RESET;
+
+	while (onewire0.state != OW0_IDLE) { }
+
+	return (onewire0.current_byte & 0x80) ? 0 : 1;
+}
+
 /*  void onewire0_poll(void)
 **
 **  Fast poll function.
@@ -217,6 +244,37 @@ ISR(TIMER0_COMPA_vect)
 			_release();
 			OCR0A = GAP_D;
 			_nextbit();
+			break;
+
+		case OW0_RESET:
+			// Pull the bus down and wait 480us (slow down the prescaler)
+			_pulllow();
+			OCR0A = GAP_H;
+			_slowtimer();
+			onewire0.state = OW0_RESET1;
+			break;
+
+		case OW0_RESET1:
+			// Release the bus, speed up the prescaler and wait for 9us
+			_release();
+			OCR0A = GAP_I;
+			_fasttimer();
+			onewire0.state = OW0_RESET2;
+			break;
+
+		case OW0_RESET2:
+			// Sample the bus, slow the prescaler down again and wait 408us
+			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
+			OCR0A = GAP_J;
+			_slowtimer();
+			onewire0.state = OW0_RESET3;
+			break;
+
+		case OW0_RESET3:
+			// Speed up the prescaler again, go to idle state with 20us between interrupts
+			OCR0A = 20;
+			_fasttimer();
+			onewire0.state = OW0_IDLE;
 			break;
 
 		case OW0_WAIT:

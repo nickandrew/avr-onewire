@@ -54,11 +54,15 @@
 #define GAP_J 51
 
 enum onewire0_state {
-	OW0_IDLE,
-	OW0_START,
-	OW0_READWAIT,
-	OW0_SAMPLE,
-	OW0_RELEASE,
+	OW0_IDLE,         // Bus is currently idle or timeslot still finishing
+	OW0_START,        // Next interrupt begins a timeslot
+	OW0_READWAIT,     // Wait 9us before sampling bus
+	OW0_SAMPLE,       // Sample bus then go to idle for 55us
+	OW0_RELEASE,      // Pullup bus then go to idle for 10us
+	OW0_RESET,        // Pulldown bus for 480us to reset all devices
+	OW0_RESET1,
+	OW0_RESET2,
+	OW0_RESET3,
 	OW0_WAIT,
 	OW0_DELAY,
 };
