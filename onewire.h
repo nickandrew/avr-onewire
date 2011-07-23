@@ -77,6 +77,13 @@ struct onewire {
 	volatile uint8_t bit_id;
 	volatile enum onewire0_process process;
 	volatile uint8_t delay_count;
+	// These are for the device ID search algorithm
+	volatile uint8_t device_id[8];
+	volatile uint8_t last_discrepancy;
+	volatile uint8_t last_family_discrepancy;
+	volatile uint8_t last_device_flag;
+	volatile uint8_t id_bit_number;
+	volatile uint8_t last_zero;
 };
 
 extern void onewire0_init(void);

@@ -32,6 +32,50 @@ static void _fasttimer(void)
 	TCCR0B = (TCCR0B & 0xf8) | PRESCALER;
 }
 
+// Get the value of a bit in a multi-byte array.
+// Bit numbers start from 1, as used here:
+// http://www.maxim-ic.com/app-notes/index.mvp/id/187
+
+static uint8_t _getbit(volatile uint8_t *cp, uint8_t bit_id)
+{
+	uint8_t bit_mask;
+
+	bit_id --;
+	// Point to the containing byte
+	cp += (bit_id >> 3);
+	bit_mask = 1 << bit_id;
+	if (*cp & bit_mask) {
+		return 1;
+	}
+
+	return 0;
+}
+
+// Set/Clear the value of a bit in a multi-byte array.
+// Bit numbers start from 1.
+
+static void _setbit(volatile uint8_t *cp, uint8_t bit_id, uint8_t value)
+{
+	uint8_t bit_mask;
+
+	bit_id --;
+	// Point to the containing byte
+	cp += (bit_id >> 3);
+	bit_mask = 1 << bit_id;
+	if (value) {
+		*cp |= bit_mask;
+	} else {
+		*cp &= ~bit_mask;
+	}
+}
+
+// Calculate an 8-bit CRC for a 1wire device_id
+// Return 1 if correct, 0 if wrong.
+
+uint8_t _checkCRC(volatile uint8_t *cp) {
+	return 1;
+}
+
 void onewire0_init(void)
 {
 	onewire0.state = OW0_IDLE;
@@ -62,6 +106,11 @@ static void _release(void)
 static void _pulllow(void)
 {
 	DDRB |= PIN;
+}
+
+static void _wait(void)
+{
+	while (onewire0.state != OW0_IDLE) { }
 }
 
 static void _writebit(uint8_t value)
@@ -112,6 +161,19 @@ static void _read8(void)
 	onewire0.state = OW0_START;
 }
 
+// Start to read 2 bits.
+// Wait for device to be idle before starting.
+// Do not wait for the bits to arrive.
+
+static void _read2(void)
+{
+	while (onewire0.state != OW0_IDLE) { }
+
+	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 2 times
+	onewire0.bit_id = 2;
+	onewire0.state = OW0_START;
+}
+
 /*  void onewire0_writebyte(uint8_t byte)
 **
 **  Write 8 bits to the bus.
@@ -156,6 +218,100 @@ uint8_t onewire0_reset(void)
 	while (onewire0.state != OW0_IDLE) { }
 
 	return (onewire0.current_byte & 0x80) ? 0 : 1;
+}
+
+// Reset search
+static inline void _resetsearch(void)
+{
+		onewire0.last_discrepancy = 0;
+		onewire0.last_family_discrepancy = 0;
+		onewire0.last_device_flag = 0;
+}
+
+/*  uint8_t onewire0_findfirst(void)
+**
+**  Initiate a 1wire device number search algorithm,
+**  and find the first 64-bit address.
+**
+**  Return 1 if a device was found, 0 if no device.
+*/
+
+uint8_t onewire0_findfirst(void)
+{
+	uint8_t i;
+
+	for (i = 0; i < 8; ++i) {
+		onewire0.device_id[i] = 0;
+	}
+
+	if (!onewire0_reset() || onewire0.last_device_flag) {
+		_resetsearch();
+		return 0;
+	}
+
+	onewire0.id_bit_number = 1;
+	onewire0.last_zero = 0;
+
+	onewire0_writebyte(0x0f);
+
+	while (onewire0.id_bit_number <= 64) {
+		uint8_t search_direction;
+
+		_read2();
+		_wait();
+
+		// Pick top 2 bits of this byte only
+		// bit 7 = cmp_id_bit
+		// bit 6 = id_bit
+		i = onewire0.current_byte & 0xc0;
+
+		// if id_bit == cmp_id_bit == 1
+		if (i == 0xc0) {
+			// No device found
+			_resetsearch();
+			return 0;
+		}
+
+		if (i == 0x00) {
+			if (onewire0.id_bit_number == onewire0.last_discrepancy) {
+				search_direction = 1;
+			}
+			else if (onewire0.id_bit_number > onewire0.last_discrepancy) {
+				search_direction = 0;
+			}
+			else {
+				// Set search_direction bit to id_bit_number bit in ROM_NO
+				search_direction = _getbit(onewire0.device_id, onewire0.id_bit_number);
+			}
+
+			if (search_direction == 0) {
+				onewire0.last_zero = onewire0.id_bit_number;
+				if (onewire0.last_zero < 9) {
+					onewire0.last_family_discrepancy = onewire0.last_zero;
+				}
+			}
+		} else {
+			search_direction = (i & 0x40) ? 1 : 0;
+		}
+
+		_setbit(onewire0.device_id, onewire0.id_bit_number, search_direction);
+		_writebit(search_direction);
+
+		onewire0.id_bit_number ++;
+	}
+
+	onewire0.last_discrepancy = onewire0.last_zero;
+
+	if (onewire0.last_discrepancy == 0) {
+		onewire0.last_device_flag = 1;
+	}
+
+	if (! _checkCRC(onewire0.device_id)) {
+		_resetsearch();
+		return 0;
+	}
+
+	return 1;
 }
 
 /*  void onewire0_poll(void)
