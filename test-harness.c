@@ -12,39 +12,39 @@
 #include "onewire.h"
 
 // Connect a logic analyzer to these pins for tracing execution and timing
-#define PINA  (1 << PORTB1)
-#define PING  (1 << PORTB2)
-#define PINC  (1 << PORTB3)
+#define DPINA  (1 << PORTB1)
+#define DPINB  (1 << PORTB2)
+#define DPINC  (1 << PORTB3)
 
 // Set all trace pins to output mode
 void init_trace(void)
 {
-	DDRB |= PINA | PINB | PINC;
-	PORTB &= ~( PINA | PINB | PINC );
+	DDRB |= DPINA | DPINB | DPINC;
+	PORTB &= ~( DPINA | DPINB | DPINC );
 }
 
 void set_a(void) {
-	PORTB |= PINA;
+	PORTB |= DPINA;
 }
 
 void set_b(void) {
-	PORTB |= PINB;
+	PORTB |= DPINB;
 }
 
 void set_c(void) {
-	PORTB |= PINC;
+	PORTB |= DPINC;
 }
 
 void clr_a(void) {
-	PORTB &= ~PINA;
+	PORTB &= ~DPINA;
 }
 
 void clr_b(void) {
-	PORTB &= ~PINB;
+	PORTB &= ~DPINB;
 }
 
 void clr_c(void) {
-	PORTB &= ~PINC;
+	PORTB &= ~DPINC;
 }
 
 int main(void) {
