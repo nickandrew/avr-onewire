@@ -228,7 +228,7 @@ static inline void _resetsearch(void)
 		onewire0.last_device_flag = 0;
 }
 
-/*  uint8_t onewire0_findfirst(void)
+/*  uint8_t onewire0_search(void)
 **
 **  Initiate a 1wire device number search algorithm,
 **  and find the first 64-bit address.
@@ -236,7 +236,7 @@ static inline void _resetsearch(void)
 **  Return 1 if a device was found, 0 if no device.
 */
 
-uint8_t onewire0_findfirst(void)
+uint8_t onewire0_search(void)
 {
 	uint8_t i;
 
