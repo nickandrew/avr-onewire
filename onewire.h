@@ -86,6 +86,11 @@ struct onewire {
 	volatile uint8_t last_zero;
 };
 
-extern void onewire0_init(void);
+extern void    onewire0_init(void);
+extern void    onewire0_poll(void);
+extern uint8_t onewire0_readbyte(void);
+extern uint8_t onewire0_reset(void);
+extern uint8_t onewire0_search(void);
+extern void    onewire0_writebyte(uint8_t byte);
 
 #endif
