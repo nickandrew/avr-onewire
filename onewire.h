@@ -22,7 +22,7 @@
 // Prescaler CK/8
 #define PRESCALER ( 1<<CS01 )
 // When resetting the devices, use 1us resolution
-#define RESET_PRESCALER ( 1<<CS01 | 1<<CS00)
+#define RESET_PRESCALER ( 1<<CS01 | 1<<CS00 )
 #else
 #error "Only CPU_FREQ of 8 MHz is presently supported"
 #endif
