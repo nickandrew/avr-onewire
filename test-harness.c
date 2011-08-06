@@ -6,6 +6,7 @@
 **  All Rights Reserved.
 */
 
+#include <avr/interrupt.h>
 #include <avr/io.h>
 #include <stdint.h>
 
@@ -15,6 +16,18 @@
 #define DPINA  (1 << PORTB1)
 #define DPINB  (1 << PORTB2)
 #define DPINC  (1 << PORTB3)
+
+/* Set highest frequency CPU operation
+**  Startup frequency is assumed to be 1 MHz
+**  8 MHz for the internal clock
+*/
+
+void set_cpu_8mhz(void) {
+	// Let's wind this sucker up to 8 MHz
+	CLKPR = 1<<CLKPCE;
+	CLKPR = 0<<CLKPS3 | 0<<CLKPS2 | 0<<CLKPS1 | 0<<CLKPS0;
+	// System clock is now 8 MHz
+}
 
 // Set all trace pins to output mode
 void init_trace(void)
@@ -50,10 +63,14 @@ void clr_c(void) {
 int main(void) {
 	uint8_t rc;
 
+	cli();
+	set_cpu_8mhz();
+
 	init_trace();
 
 	set_a();
 	onewire0_init();
+	sei();
 
 	set_b();
 	rc = onewire0_reset();
