@@ -15,21 +15,55 @@ struct onewire onewire0;
 
 static void _starttimer(void)
 {
-	// Clear any pending timer interrupt
-	TIFR |= 1<<OCF0A;
-	// Start the timer counting
+	// Setup timer0
+
+	GTCCR |= (1<<TSM | 1<<PSR0);  // Disable the timer for programming
+
+	// Enable CTC mode (mode 2); TCNT0 counts from 0 to OCR0A inclusive
+	TCCR0A |= ( 1<<WGM01 );
+
+	// Setup Clock Select = 2 (1<<CS01) for clkIO/8
+	TCCR0B = PRESCALER;
+
+	// Start counting from 0
 	TCNT0 = 0;
-	TCCR0B |= PRESCALER;
+
+	// Initially, interrupt once every 20us
+	OCR0A = 20 - 1;
+
+	// OCR0B is not used
+	OCR0B = 0xff;
+
+	// Enable interrupt on Compare Match A
+	TIMSK |= ( 1<<OCIE0A );
+
+	// Clear any pending timer interrupt
+	TIFR |= ( 1<<OCF0A );
+
+	// Start the timer
+	GTCCR &= ~( 1<<TSM );
 }
 
 static void _slowtimer(void)
 {
+	// Halt the counter for a moment to reconfigure
+	GTCCR |= ( 1<<TSM | 1<<PSR0 );
+
 	TCCR0B = (TCCR0B & 0xf8) | RESET_PRESCALER;
+
+	// Resume counting
+	GTCCR &= ~( 1<<TSM );
 }
 
 static void _fasttimer(void)
 {
+	// Halt the counter for a moment to reconfigure
+	GTCCR |= 1<<TSM | 1<<PSR0;
+
 	TCCR0B = (TCCR0B & 0xf8) | PRESCALER;
+
+	// Resume counting
+	GTCCR &= ~( 1<<TSM );
 }
 
 // Get the value of a bit in a multi-byte array.
@@ -84,17 +118,6 @@ void onewire0_init(void)
 	// Setup I/O pin, initial tri-state, when enabled output low
 	DDRB &= ~( PIN );
 	PORTB &= ~( PIN );
-
-	// Setup timer0
-	// GTCCR |= ( 1<<TSM );  // Disable the timer for programming
-	// GTCCR |= ( 1<<PSR0 );
-	// Enable CTC mode
-	TCCR0A |= ( 1<<WGM01 );
-	TCCR0B &= ~PRESCALER;
-	OCR0A = 20;   // Initial value, to interrupt once every 20us
-	OCR0B = 0xff; // Not used
-	TIMSK |= 1<<OCIE0A;
-
 	_starttimer();
 }
 
@@ -359,7 +382,7 @@ ISR(TIMER0_COMPA_vect)
 	switch(onewire0.state) {
 		case OW0_IDLE:
 			// Wait 20us until the next interrupt
-			OCR0A = 20;
+			OCR0A = 20 - 1;
 			break;
 
 		case OW0_START:
@@ -367,12 +390,12 @@ ISR(TIMER0_COMPA_vect)
 			if (onewire0.current_byte & 1) {
 				// Write a 1-bit or read a bit:
 				// 6us low, 9us wait, sample, 55us high
-				OCR0A = GAP_A;
+				OCR0A = GAP_A - 1;
 				onewire0.state = OW0_READWAIT;
 			} else {
 				// Write a 0-bit
 				// 60us low, 10us high
-				OCR0A = GAP_C;
+				OCR0A = GAP_C - 1;
 				onewire0.state = OW0_RELEASE;
 			}
 
@@ -382,7 +405,7 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_READWAIT:
 			// Let the signal go high, wait 9us then sample.
 			_release();
-			OCR0A = GAP_E;
+			OCR0A = GAP_E - 1;
 			onewire0.state = OW0_SAMPLE;
 			break;
 
@@ -391,21 +414,21 @@ ISR(TIMER0_COMPA_vect)
 			// have to shift current_byte down and store in bit 7
 			// Shifting is done in state OW0_START so no need to do it again here.
 			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
-			OCR0A = GAP_F;
+			OCR0A = GAP_F - 1;
 			_nextbit();
 			break;
 
 		case OW0_RELEASE:
 			// Let the signal go high for 10us.
 			_release();
-			OCR0A = GAP_D;
+			OCR0A = GAP_D - 1;
 			_nextbit();
 			break;
 
 		case OW0_RESET:
 			// Pull the bus down and wait 480us (slow down the prescaler)
 			_pulllow();
-			OCR0A = GAP_H;
+			OCR0A = GAP_H - 1;
 			_slowtimer();
 			onewire0.state = OW0_RESET1;
 			break;
@@ -413,7 +436,7 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_RESET1:
 			// Release the bus, speed up the prescaler and wait for 9us
 			_release();
-			OCR0A = GAP_I;
+			OCR0A = GAP_I - 1;
 			_fasttimer();
 			onewire0.state = OW0_RESET2;
 			break;
@@ -421,14 +444,14 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_RESET2:
 			// Sample the bus, slow the prescaler down again and wait 408us
 			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
-			OCR0A = GAP_J;
+			OCR0A = GAP_J - 1;
 			_slowtimer();
 			onewire0.state = OW0_RESET3;
 			break;
 
 		case OW0_RESET3:
 			// Speed up the prescaler again, go to idle state with 20us between interrupts
-			OCR0A = 20;
+			OCR0A = 20 - 1;
 			_fasttimer();
 			onewire0.state = OW0_IDLE;
 			break;
@@ -436,7 +459,7 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_WAIT:
 			// This will ensure the interrupt is re-triggered every 20us
 			// in idle state.
-			OCR0A = 20;
+			OCR0A = 20 - 1;
 			onewire0.state = OW0_IDLE;
 			break;
 
