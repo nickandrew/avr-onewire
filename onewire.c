@@ -50,6 +50,8 @@ static void _slowtimer(void)
 	GTCCR |= ( 1<<TSM | 1<<PSR0 );
 
 	TCCR0B = (TCCR0B & 0xf8) | RESET_PRESCALER;
+	// Reset counter, so start counting from the moment the timer is re-enabled
+	TCNT0 = 0;
 
 	// Resume counting
 	GTCCR &= ~( 1<<TSM );
@@ -61,6 +63,8 @@ static void _fasttimer(void)
 	GTCCR |= 1<<TSM | 1<<PSR0;
 
 	TCCR0B = (TCCR0B & 0xf8) | PRESCALER;
+	// Reset counter, so start counting from the moment the timer is re-enabled
+	TCNT0 = 0;
 
 	// Resume counting
 	GTCCR &= ~( 1<<TSM );
@@ -167,7 +171,7 @@ static void _write8(uint8_t byte)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = byte;
-	onewire0.bit_id = 8;
+	onewire0.bit_id = 7;
 	onewire0.state = OW0_START;
 }
 
@@ -180,7 +184,7 @@ static void _read8(void)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 8 times
-	onewire0.bit_id = 8;
+	onewire0.bit_id = 7;
 	onewire0.state = OW0_START;
 }
 
@@ -193,7 +197,7 @@ static void _read2(void)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 2 times
-	onewire0.bit_id = 2;
+	onewire0.bit_id = 1;
 	onewire0.state = OW0_START;
 }
 
@@ -379,6 +383,7 @@ static inline void _nextbit(void) {
 
 ISR(TIMER0_COMPA_vect)
 {
+
 	switch(onewire0.state) {
 		case OW0_IDLE:
 			// Wait 20us until the next interrupt
@@ -471,4 +476,8 @@ ISR(TIMER0_COMPA_vect)
 	}
 
 	// Return from interrupt
+}
+
+uint8_t onewire0_isidle(void) {
+	return (onewire0.state == OW0_IDLE);
 }

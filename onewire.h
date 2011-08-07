@@ -19,9 +19,9 @@
 #endif
 
 #if CPU_FREQ == 8000000
-// Prescaler CK/8
+// Prescaler CK/8 = 1 us resolution
 #define PRESCALER ( 1<<CS01 )
-// When resetting the devices, use 1us resolution
+// When resetting the devices, use CK/64 (8 us resolution)
 #define RESET_PRESCALER ( 1<<CS01 | 1<<CS00 )
 #else
 #error "Only CPU_FREQ of 8 MHz is presently supported"
@@ -92,5 +92,6 @@ extern uint8_t onewire0_readbyte(void);
 extern uint8_t onewire0_reset(void);
 extern uint8_t onewire0_search(void);
 extern void    onewire0_writebyte(uint8_t byte);
+extern uint8_t onewire0_isidle(void);
 
 #endif
