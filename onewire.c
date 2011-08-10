@@ -384,6 +384,14 @@ static inline void _nextbit(void) {
 ISR(TIMER0_COMPA_vect)
 {
 
+	// This is very tight timing, so it has to go first.
+	if (onewire0.state == OW0_READWAIT) {
+			OCR0A = GAP_E - 1;
+			_release();
+			onewire0.state = OW0_SAMPLE;
+			return;
+	}
+
 	switch(onewire0.state) {
 		case OW0_IDLE:
 			// Wait 20us until the next interrupt
