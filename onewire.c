@@ -424,7 +424,6 @@ static inline void _nextbit(void) {
 
 ISR(TIMER0_COMPA_vect)
 {
-	PORTB ^= (1 << PORTB3);
 
 	switch(onewire0.state) {
 		case OW0_IDLE:
@@ -433,6 +432,7 @@ ISR(TIMER0_COMPA_vect)
 			break;
 
 		case OW0_START:
+			PORTB ^= (1 << PORTB3);
 			_pulllow();
 			uint8_t timer = TCNT0;
 
@@ -458,15 +458,15 @@ ISR(TIMER0_COMPA_vect)
 				// 60us low, 10us high
 				OCR0A = GAP_C - 1;
 				onewire0.state = OW0_RELEASE;
+				onewire0.current_byte >>= 1;
 			}
 
-			onewire0.current_byte >>= 1;
 			break;
 
 		case OW0_READWAIT:
 			// Let the signal go high, wait 9us then sample.
 			_release();
-			PORTB = (PORTB & 0xf3) | 0x08; // code 2
+			// PORTB = (PORTB & 0xf3) | 0x08; // code 2
 			OCR0A = GAP_E - 1;
 			onewire0.state = OW0_SAMPLE;
 			break;
@@ -476,7 +476,7 @@ ISR(TIMER0_COMPA_vect)
 			// have to shift current_byte down and store in bit 7
 			// Shifting is done in state OW0_START so no need to do it again here.
 			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
-			PORTB = (PORTB & 0xf3) | 0x0c; // code 3
+			// PORTB = (PORTB & 0xf3) | 0x0c; // code 3
 			OCR0A = GAP_F - 1;
 			_nextbit();
 			break;

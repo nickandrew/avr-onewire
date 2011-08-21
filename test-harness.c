@@ -48,6 +48,18 @@ void set_c(void) {
 	PORTB |= DPINC;
 }
 
+void toggle_a(void) {
+	PORTB ^= DPINA;
+}
+
+void toggle_b(void) {
+	PORTB ^= DPINB;
+}
+
+void toggle_c(void) {
+	PORTB ^= DPINC;
+}
+
 void clr_a(void) {
 	PORTB &= ~DPINA;
 }
@@ -68,22 +80,68 @@ int main(void) {
 
 	init_trace();
 
-	set_a();
 	onewire0_init();
 	sei();
 
-	set_b();
-	rc = onewire0_reset();
-	clr_b();
+	while (1) {
+		toggle_a();
 
-	onewire0_writebyte(0x05);
+		// set_b();
+		rc = onewire0_reset();
+		// clr_b();
 
-	set_c();
-	rc = onewire0_search();
-	clr_c();
+		set_b();
+		onewire0_writebyte(0x00);
+		while (! onewire0_isidle()) { }
+		toggle_b();
 
+		onewire0_writebyte(0x00);
+		while (! onewire0_isidle()) { }
+		toggle_b();
 
-	clr_a();
-	while (1) { }
+		onewire0_writebyte(0x33);
+		while (! onewire0_isidle()) { }
+
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+		onewire0_readbyte();
+		toggle_b();
+
+		// Delay 1 second
+		for (rc = 0; rc < 33; ++rc) {
+//			onewire0_delay(0);
+			toggle_c();
+		}
+
+		// onewire0_writebyte(0x0f);
+// 		while (! onewire0_isidle()) { }
+		// toggle_b();
+// 		onewire0_writebyte(0x00);
+// 		while (! onewire0_isidle()) { }
+		// toggle_b();
+// 		onewire0_writebyte(0xff);
+// 		while (! onewire0_isidle()) { }
+		// toggle_b();
+
+		while (! onewire0_isidle()) { }
+
+		// set_c();
+		// rc = onewire0_search();
+		// clr_c();
+
+	}
 }
 
