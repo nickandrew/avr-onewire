@@ -44,7 +44,7 @@ static void _starttimer(void)
 	GTCCR &= ~( 1<<TSM );
 }
 
-static void _slowtimer(void)
+inline void _slowtimer(void)
 {
 	// Halt the counter for a moment to reconfigure
 	GTCCR |= ( 1<<TSM | 1<<PSR0 );
@@ -57,7 +57,7 @@ static void _slowtimer(void)
 	GTCCR &= ~( 1<<TSM );
 }
 
-static void _delaytimer(void)
+inline void _delaytimer(void)
 {
 	// Halt the counter for a moment to reconfigure
 	GTCCR |= ( 1<<TSM | 1<<PSR0 );
@@ -70,7 +70,7 @@ static void _delaytimer(void)
 	GTCCR &= ~( 1<<TSM );
 }
 
-static void _fasttimer(void)
+inline void _fasttimer(void)
 {
 	// Halt the counter for a moment to reconfigure
 	GTCCR |= 1<<TSM | 1<<PSR0;
@@ -138,13 +138,13 @@ void onewire0_init(void)
 	_starttimer();
 }
 
-static void _release(void)
+inline void _release(void)
 {
 	PORTB &= ~( PIN );  // Disable weak pullup
 	DDRB &= ~( PIN );   // Set pin mode to input
 }
 
-static void _pulllow(void)
+inline void _pulllow(void)
 {
 	// PORTB is expected to be low at this point
 	DDRB |= PIN;
@@ -154,7 +154,7 @@ static void _pulllow(void)
 // The pullup is obviously limited to the current sourcing capacity of the ATTiny85 (40mA).
 // A call to _pullhigh() must be followed by _release before calling _pulllow().
 
-static void _pullhigh(void)
+inline void _pullhigh(void)
 {
 	PORTB |= PIN;       // Output high
 	DDRB |= PIN;        // Set pin mode to output
@@ -170,7 +170,7 @@ static void _writebit(uint8_t value)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = value ? 1 : 0;
-	onewire0.bit_id = 0;
+	onewire0.bit_id = 1;
 	onewire0.state = OW0_START;
 }
 
@@ -179,7 +179,7 @@ static uint8_t _readbit(void)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = 1; // Write a 1 bit to sample input
-	onewire0.bit_id = 0;
+	onewire0.bit_id = 1;
 	onewire0.state = OW0_START;
 
 	while (onewire0.state != OW0_IDLE) { }
@@ -196,7 +196,7 @@ static void _write8(uint8_t byte)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = byte;
-	onewire0.bit_id = 7;
+	onewire0.bit_id = 8;
 	onewire0.state = OW0_START;
 }
 
@@ -209,7 +209,7 @@ static void _read8(void)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 8 times
-	onewire0.bit_id = 7;
+	onewire0.bit_id = 8;
 	onewire0.state = OW0_START;
 }
 
@@ -222,7 +222,7 @@ static void _read2(void)
 	while (onewire0.state != OW0_IDLE) { }
 
 	onewire0.current_byte = 0xff; // Write all 1-bits to sample input 2 times
-	onewire0.bit_id = 1;
+	onewire0.bit_id = 2;
 	onewire0.state = OW0_START;
 }
 
@@ -410,7 +410,7 @@ void onewire0_poll(void)
 
 static inline void _nextbit(void) {
 	// Perform the next action in the meta-process
-	if (onewire0.bit_id --) {
+	if (--onewire0.bit_id) {
 		// Continue reading/writing a byte with the next bit
 		onewire0.state = OW0_START;
 	} else {
@@ -434,20 +434,28 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_START:
 			PORTB ^= (1 << PORTB3);
 			_pulllow();
-			uint8_t timer = TCNT0;
 
 			// PORTB = (PORTB & 0xf3) | 0x04; // code 1
 			if (onewire0.current_byte & 1) {
+				uint8_t delay;
+
 				// Write a 1-bit or read a bit:
 				// 6us low, 9us wait, sample, 55us high
 				OCR0A = 70 - 1;
 
 				// Delay 15 us within the interupt function:
-				// 6 us signal low
-				while (TCNT0 < timer + 5) { }
+				// 6 us signal low (48 instruction times)
+				// This loop takes 5 x N instruction times
+				for (delay = 0; delay < 8; ++delay) {
+					asm("nop");
+				}
+
 				// 9 us tri-state
 				_release();
-				while (TCNT0 < timer + 13) { }
+				for (delay = 0; delay < 14; ++delay) {
+					asm("nop");
+				}
+
 				// shift byte then sample the signal
 				onewire0.current_byte = (onewire0.current_byte >> 1) | ((PINB & (PIN)) ? 0x80 : 0);
 				// onewire0.current_byte >>= 1;
@@ -484,7 +492,7 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_RELEASE:
 			// Let the signal go high for 10us.
 			_release();
-			OCR0A = GAP_D - 1;
+			OCR0A = GAP_D + 4 - 1;
 			_nextbit();
 			break;
 
