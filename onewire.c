@@ -492,7 +492,7 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_RELEASE:
 			// Let the signal go high for 10us.
 			_release();
-			OCR0A = GAP_D + 4 - 1;
+			OCR0A = GAP_D + 5 - 1;
 			_nextbit();
 			break;
 
