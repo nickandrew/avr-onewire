@@ -65,7 +65,6 @@ enum onewire0_state {
 	OW0_RESET1,
 	OW0_RESET2,
 	OW0_RESET3,
-	OW0_WAIT,
 	OW0_DELAY,
 };
 

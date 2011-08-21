@@ -527,13 +527,6 @@ ISR(TIMER0_COMPA_vect)
 			onewire0.state = OW0_IDLE;
 			break;
 
-		case OW0_WAIT:
-			// This will ensure the interrupt is re-triggered every 20us
-			// in idle state.
-			OCR0A = 20 - 1;
-			onewire0.state = OW0_IDLE;
-			break;
-
 		case OW0_DELAY:
 			if (! --onewire0.delay_count) {
 				onewire0.state = OW0_IDLE;
