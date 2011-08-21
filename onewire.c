@@ -541,3 +541,72 @@ ISR(TIMER0_COMPA_vect)
 uint8_t onewire0_isidle(void) {
 	return (onewire0.state == OW0_IDLE);
 }
+
+/*
+**  High Level Functions
+*/
+
+void onewire0_readrom(struct onewire_id *buf) {
+	uint8_t  *cp = buf->device_id;
+	uint8_t  byte_id;
+
+	onewire0_writebyte(0x33);
+
+	for (byte_id = 0; byte_id < 8; ++byte_id) {
+		*cp++ = onewire0_readbyte();
+	}
+}
+
+void onewire0_matchrom(struct onewire_id *dev) {
+	uint8_t  *buf = dev->device_id;
+	uint8_t  byte_id;
+
+	onewire0_writebyte(0x55);
+
+	for (byte_id = 0; byte_id < 8; ++byte_id) {
+		onewire0_writebyte(*buf++);
+	}
+}
+
+// Issue 0x44, "Convert T".
+
+void onewire0_convert(void) {
+	onewire0_writebyte(0x44);
+	while (onewire0.state != OW0_IDLE) { }
+	_pullhigh();
+	// Now sleep for at least 750 ms, with a strong pullup to power the conversion
+}
+
+// Issue a "Skip Rom" command before "Convert T". This tells all devices to start a
+// temperature conversion.
+
+void onewire0_convertall(void) {
+	onewire0_writebyte(0xcc);
+	onewire0_convert();
+}
+
+void onewire0_writescratch(char *scratch) {
+	uint8_t  byte_id;
+
+	onewire0_writebyte(0x4e);
+
+	for (byte_id = 0; byte_id < 3; ++byte_id) {
+		onewire0_writebyte(*scratch++);
+	}
+}
+
+void onewire0_readscratch(char *scratch) {
+	uint8_t  byte_id;
+
+	onewire0_writebyte(0xbe);
+
+	for (byte_id = 0; byte_id < 3; ++byte_id) {
+		*scratch++ = onewire0_readbyte();
+	}
+}
+
+uint8_t onewire0_readpower(void) {
+	onewire0_writebyte(0xb4);
+
+	return _readbit();
+}

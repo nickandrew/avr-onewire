@@ -87,6 +87,10 @@ struct onewire {
 	volatile uint8_t last_zero;
 };
 
+struct onewire_id {
+	uint8_t device_id[8];
+};
+
 extern void    onewire0_init(void);
 extern void    onewire0_poll(void);
 extern uint8_t onewire0_readbyte(void);
@@ -95,5 +99,9 @@ extern uint8_t onewire0_search(void);
 extern void    onewire0_writebyte(uint8_t byte);
 extern uint8_t onewire0_isidle(void);
 extern void    onewire0_delay(uint8_t usec128);
+
+// OneWire high level functions
+
+extern void    onewire0_readrom(struct onewire_id *buf);
 
 #endif
