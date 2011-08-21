@@ -19,10 +19,12 @@
 #endif
 
 #if CPU_FREQ == 8000000
-// Prescaler CK/8 = 1 us resolution
+// Prescaler CLKio/8 = 1 us resolution
 #define PRESCALER ( 1<<CS01 )
-// When resetting the devices, use CK/64 (8 us resolution)
-#define RESET_PRESCALER ( 1<<CS01 | 1<<CS00 )
+// When resetting the devices, use CLKio/64 (8 us resolution)
+#define RESET_PRESCALER ( 0<<CS02 | 1<<CS01 | 1<<CS00 )
+// For long delays, use CLKio/1024 (32 us resolution)
+#define DELAY_PRESCALER ( 1<<CS02 | 0<<CS01 | 1<<CS00 )
 #else
 #error "Only CPU_FREQ of 8 MHz is presently supported"
 #endif
@@ -93,5 +95,6 @@ extern uint8_t onewire0_reset(void);
 extern uint8_t onewire0_search(void);
 extern void    onewire0_writebyte(uint8_t byte);
 extern uint8_t onewire0_isidle(void);
+extern void    onewire0_delay(uint8_t usec128);
 
 #endif

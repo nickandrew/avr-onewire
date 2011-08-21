@@ -57,6 +57,19 @@ static void _slowtimer(void)
 	GTCCR &= ~( 1<<TSM );
 }
 
+static void _delaytimer(void)
+{
+	// Halt the counter for a moment to reconfigure
+	GTCCR |= ( 1<<TSM | 1<<PSR0 );
+
+	TCCR0B = (TCCR0B & 0xf8) | DELAY_PRESCALER;
+	// Reset counter, so start counting from the moment the timer is re-enabled
+	TCNT0 = 0;
+
+	// Resume counting
+	GTCCR &= ~( 1<<TSM );
+}
+
 static void _fasttimer(void)
 {
 	// Halt the counter for a moment to reconfigure
@@ -127,12 +140,24 @@ void onewire0_init(void)
 
 static void _release(void)
 {
-	DDRB &= ~( PIN );
+	PORTB &= ~( PIN );  // Disable weak pullup
+	DDRB &= ~( PIN );   // Set pin mode to input
 }
 
 static void _pulllow(void)
 {
+	// PORTB is expected to be low at this point
 	DDRB |= PIN;
+}
+
+// Set a strong pullup on the 1-wire bus: pin set to output, logic high.
+// The pullup is obviously limited to the current sourcing capacity of the ATTiny85 (40mA).
+// A call to _pullhigh() must be followed by _release before calling _pulllow().
+
+static void _pullhigh(void)
+{
+	PORTB |= PIN;       // Output high
+	DDRB |= PIN;        // Set pin mode to output
 }
 
 static void _wait(void)
@@ -245,6 +270,23 @@ uint8_t onewire0_reset(void)
 	while (onewire0.state != OW0_IDLE) { }
 
 	return (onewire0.current_byte & 0x80) ? 0 : 1;
+}
+
+/*  void onewire0_delay(uint8_t usec128)
+**
+**  Delay some time
+**  Input value 0..255 is usec x 128; 0 means 256
+**  Maximum sleep time = 256 x 128 us = 32768 us.
+*/
+
+void onewire0_delay(uint8_t usec128) {
+	while (onewire0.state != OW0_IDLE) { }
+
+	_delaytimer();
+	onewire0.delay_count = usec128;
+	onewire0.state = OW0_DELAY;
+	while (onewire0.state != OW0_IDLE) { }
+	_fasttimer();
 }
 
 // Reset search
@@ -368,10 +410,9 @@ void onewire0_poll(void)
 
 static inline void _nextbit(void) {
 	// Perform the next action in the meta-process
-	if (onewire0.bit_id) {
+	if (onewire0.bit_id --) {
 		// Continue reading/writing a byte with the next bit
 		onewire0.state = OW0_START;
-		-- onewire0.bit_id;
 	} else {
 		// The next state will be idle unless mainline code changes it
 		// before the next interrupt (e.g. more bytes to send).
@@ -383,14 +424,7 @@ static inline void _nextbit(void) {
 
 ISR(TIMER0_COMPA_vect)
 {
-
-	// This is very tight timing, so it has to go first.
-	if (onewire0.state == OW0_READWAIT) {
-			OCR0A = GAP_E - 1;
-			_release();
-			onewire0.state = OW0_SAMPLE;
-			return;
-	}
+	PORTB ^= (1 << PORTB3);
 
 	switch(onewire0.state) {
 		case OW0_IDLE:
@@ -400,11 +434,25 @@ ISR(TIMER0_COMPA_vect)
 
 		case OW0_START:
 			_pulllow();
+			uint8_t timer = TCNT0;
+
+			// PORTB = (PORTB & 0xf3) | 0x04; // code 1
 			if (onewire0.current_byte & 1) {
 				// Write a 1-bit or read a bit:
 				// 6us low, 9us wait, sample, 55us high
-				OCR0A = GAP_A - 1;
-				onewire0.state = OW0_READWAIT;
+				OCR0A = 70 - 1;
+
+				// Delay 15 us within the interupt function:
+				// 6 us signal low
+				while (TCNT0 < timer + 5) { }
+				// 9 us tri-state
+				_release();
+				while (TCNT0 < timer + 13) { }
+				// shift byte then sample the signal
+				onewire0.current_byte = (onewire0.current_byte >> 1) | ((PINB & (PIN)) ? 0x80 : 0);
+				// onewire0.current_byte >>= 1;
+				// onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
+				_nextbit();
 			} else {
 				// Write a 0-bit
 				// 60us low, 10us high
@@ -418,6 +466,7 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_READWAIT:
 			// Let the signal go high, wait 9us then sample.
 			_release();
+			PORTB = (PORTB & 0xf3) | 0x08; // code 2
 			OCR0A = GAP_E - 1;
 			onewire0.state = OW0_SAMPLE;
 			break;
@@ -427,6 +476,7 @@ ISR(TIMER0_COMPA_vect)
 			// have to shift current_byte down and store in bit 7
 			// Shifting is done in state OW0_START so no need to do it again here.
 			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
+			PORTB = (PORTB & 0xf3) | 0x0c; // code 3
 			OCR0A = GAP_F - 1;
 			_nextbit();
 			break;
@@ -482,6 +532,7 @@ ISR(TIMER0_COMPA_vect)
 			}
 			break;
 	}
+
 
 	// Return from interrupt
 }
