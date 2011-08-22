@@ -65,7 +65,11 @@ enum onewire0_state {
 	OW0_RESET1,
 	OW0_RESET2,
 	OW0_RESET3,
+	OW0_DELAY1US,     // Start delay countdown at 1 us per timer count
+	OW0_DELAY8US,     // Start delay countdown at 8 us per timer count
+	OW0_DELAY128US,   // Start delay countdown at 128 us per timer count
 	OW0_DELAY,
+	OW0_DELAY_END,    // Reset the timer after an 8 us or 128 us delay operation
 };
 
 enum onewire0_process {
@@ -77,7 +81,8 @@ struct onewire {
 	volatile uint8_t current_byte;
 	volatile uint8_t bit_id;
 	volatile enum onewire0_process process;
-	volatile uint8_t delay_count;
+	volatile uint8_t ocr0a;
+	volatile uint16_t delay_count;
 	// These are for the device ID search algorithm
 	volatile uint8_t device_id[8];
 	volatile uint8_t last_discrepancy;
@@ -98,7 +103,11 @@ extern uint8_t onewire0_reset(void);
 extern uint8_t onewire0_search(void);
 extern void    onewire0_writebyte(uint8_t byte);
 extern uint8_t onewire0_isidle(void);
-extern void    onewire0_delay(uint8_t usec128);
+
+// Delay functions
+extern void    onewire0_delay1(uint8_t ocr0a, uint16_t usec1);
+extern void    onewire0_delay8(uint8_t ocr0a, uint16_t usec8);
+extern void    onewire0_delay128(uint8_t ocr0a, uint16_t usec128);
 
 // OneWire high level functions
 

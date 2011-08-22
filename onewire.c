@@ -44,7 +44,7 @@ static void _starttimer(void)
 	GTCCR &= ~( 1<<TSM );
 }
 
-inline void _slowtimer(void)
+inline void _medtimer(void)
 {
 	// Halt the counter for a moment to reconfigure
 	GTCCR |= ( 1<<TSM | 1<<PSR0 );
@@ -52,6 +52,7 @@ inline void _slowtimer(void)
 	TCCR0B = (TCCR0B & 0xf8) | RESET_PRESCALER;
 	// Reset counter, so start counting from the moment the timer is re-enabled
 	TCNT0 = 0;
+	OCR0A = onewire0.ocr0a;
 
 	// Resume counting
 	GTCCR &= ~( 1<<TSM );
@@ -65,22 +66,36 @@ inline void _delaytimer(void)
 	TCCR0B = (TCCR0B & 0xf8) | DELAY_PRESCALER;
 	// Reset counter, so start counting from the moment the timer is re-enabled
 	TCNT0 = 0;
+	// 256 counts per interrupt
+	OCR0A = 255;
 
 	// Resume counting
 	GTCCR &= ~( 1<<TSM );
 }
 
+/*
+**  If the timer is not already in fast mode (found by checking the
+**  prescaler) then halt the timer, reconfigure it in fast mode,
+**  reset the counter then resume counting.
+**
+**  The conditional reset logic is used to ensure that an already-fast
+**  timer need not be stopped and restarted, which would introduce a
+**  small delay.
+*/
+
 inline void _fasttimer(void)
 {
-	// Halt the counter for a moment to reconfigure
-	GTCCR |= 1<<TSM | 1<<PSR0;
+	if ((TCCR0B & 0x07) != PRESCALER) {
+		// Halt the counter for a moment to reconfigure
+		GTCCR |= 1<<TSM | 1<<PSR0;
 
-	TCCR0B = (TCCR0B & 0xf8) | PRESCALER;
-	// Reset counter, so start counting from the moment the timer is re-enabled
-	TCNT0 = 0;
+		TCCR0B = (TCCR0B & 0xf8) | PRESCALER;
+		// Reset counter, so start counting from the moment the timer is re-enabled
+		TCNT0 = 0;
 
-	// Resume counting
-	GTCCR &= ~( 1<<TSM );
+		// Resume counting
+		GTCCR &= ~( 1<<TSM );
+	}
 }
 
 // Get the value of a bit in a multi-byte array.
@@ -272,21 +287,74 @@ uint8_t onewire0_reset(void)
 	return (onewire0.current_byte & 0x80) ? 0 : 1;
 }
 
-/*  void onewire0_delay(uint8_t usec128)
+/*  void onewire0_delay1(uint8_t ocr0a, uint16_t usec1)
 **
-**  Delay some time
-**  Input value 0..255 is usec x 128; 0 means 256
-**  Maximum sleep time = 256 x 128 us = 32768 us.
+**  Setup a delay for some number of microseconds.
+**  The delay = (ocr0a + 1) x usec1 x 1 us.
+**  The state will become OW0_IDLE after the programmed delay, but there
+**  will be another 20 us until the next interrupt. So take that into
+**  consideration.
+**
+**  ocr0a = 0..255 as the number of counts per interrupt (minus 1)
+**    Values of ocr0a less than 10 or so won't work, as the interrupt handler
+**    takes around 10 us to process each interrupt.
+**  usec1 = 0..65535 as the number of interrupts (0 means 65536).
+**
+**  Maximum sleep time = 65536 x 256 x 1 us = 16.777216 seconds.
 */
 
-void onewire0_delay(uint8_t usec128) {
+void onewire0_delay1(uint8_t ocr0a, uint16_t usec1) {
 	while (onewire0.state != OW0_IDLE) { }
 
-	_delaytimer();
-	onewire0.delay_count = usec128;
-	onewire0.state = OW0_DELAY;
+	onewire0.ocr0a = ocr0a;
+	onewire0.delay_count = usec1;
+	onewire0.state = OW0_DELAY1US;
+}
+
+/*  void onewire0_delay8(uint8_t ocr0a, uint16_t usec8)
+**
+**  Setup a delay for some number of microseconds.
+**  The delay = (ocr0a + 1) x usec8 x 8 us.
+**  The state will become OW0_IDLE after the programmed delay, but there
+**  will be another 20 us until the next interrupt. So take that into
+**  consideration.
+**
+**  ocr0a = 0..255 as the number of counts per interrupt (minus 1)
+**    Values of ocr0a less than 2 won't work, as the interrupt handler
+**    takes around 10 us to process each interrupt.
+**  usec8 = 0..65535 as the number of interrupts (0 means 65536).
+**
+**  Maximum sleep time = 65536 x 256 x 8 us = ~134 seconds.
+*/
+
+void onewire0_delay8(uint8_t ocr0a, uint16_t usec8) {
 	while (onewire0.state != OW0_IDLE) { }
-	_fasttimer();
+
+	onewire0.ocr0a = ocr0a;
+	onewire0.delay_count = usec8;
+	onewire0.state = OW0_DELAY8US;
+}
+
+/*  void onewire0_delay128(uint8_t ocr0a, uint16_t usec128)
+**
+**  Setup a delay for some number of microseconds.
+**  The delay = (ocr0a + 1) x usec128 x 128 us.
+**  The state will become OW0_IDLE after the programmed delay, but there
+**  will be another 20 us until the next interrupt. So take that into
+**  consideration.
+**
+**  ocr0a = 0..255 as the number of counts per interrupt (minus 1)
+**  usec128 = 0..65535 as the number of interrupts (0 means 65536).
+**
+**  Maximum sleep time = 65536 x 256 x 128 us = ~2147 seconds.
+*/
+
+void onewire0_delay128(uint8_t ocr0a, uint16_t usec128) {
+	while (onewire0.state != OW0_IDLE) { }
+
+	onewire0.ocr0a = ocr0a;
+	onewire0.delay_count = usec128;
+	onewire0.state = OW0_DELAY128US;
 }
 
 // Reset search
@@ -432,7 +500,6 @@ ISR(TIMER0_COMPA_vect)
 			break;
 
 		case OW0_START:
-			PORTB ^= (1 << PORTB3);
 			_pulllow();
 
 			// PORTB = (PORTB & 0xf3) | 0x04; // code 1
@@ -499,8 +566,8 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_RESET:
 			// Pull the bus down and wait 480us (slow down the prescaler)
 			_pulllow();
-			OCR0A = GAP_H - 1;
-			_slowtimer();
+			onewire0.ocr0a = GAP_H - 1;
+			_medtimer();
 			onewire0.state = OW0_RESET1;
 			break;
 
@@ -515,8 +582,8 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_RESET2:
 			// Sample the bus, slow the prescaler down again and wait 408us
 			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
-			OCR0A = GAP_J - 1;
-			_slowtimer();
+			onewire0.ocr0a = GAP_J - 1;
+			_medtimer();
 			onewire0.state = OW0_RESET3;
 			break;
 
@@ -527,10 +594,35 @@ ISR(TIMER0_COMPA_vect)
 			onewire0.state = OW0_IDLE;
 			break;
 
+		case OW0_DELAY1US:
+			OCR0A = onewire0.ocr0a;
+			// The timer is assumed to already be in fast mode
+			onewire0.state = OW0_DELAY;
+			break;
+
+		case OW0_DELAY8US:
+			// Setup timer to interrupt every 8 us x (ocr0a + 1), then enter delay loop
+			_medtimer();
+			onewire0.state = OW0_DELAY;
+			break;
+
+		case OW0_DELAY128US:
+			// Setup timer to interrupt every 128 us x (ocr0a + 1), then enter delay loop
+			_delaytimer();
+			onewire0.state = OW0_DELAY;
+			break;
+
 		case OW0_DELAY:
 			if (! --onewire0.delay_count) {
+				// Delay is finished; setup the next interrupt in 20 us
+				OCR0A = 20 - 1;
+				_fasttimer();
 				onewire0.state = OW0_IDLE;
 			}
+			break;
+
+		case OW0_DELAY_END:
+			onewire0.state = OW0_IDLE;
 			break;
 	}
 
