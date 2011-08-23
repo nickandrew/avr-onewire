@@ -72,6 +72,10 @@ enum onewire0_state {
 	OW0_DELAY128US,   // Start delay countdown at 128 us per timer count
 	OW0_DELAY,
 	OW0_DELAY_END,    // Reset the timer after an 8 us or 128 us delay operation
+
+	// For conversion delays
+	OW0_CONVERT,      // Start 750ms delay with strong pullup
+	OW0_CONVERT_DELAY,
 };
 
 enum onewire0_process {

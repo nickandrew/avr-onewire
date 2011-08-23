@@ -624,6 +624,24 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_DELAY_END:
 			onewire0.state = OW0_IDLE;
 			break;
+
+		case OW0_CONVERT:
+			// Program a 750 ms delay
+			// 750ms = 1 us * 240 * 3125
+			OCR0A = 239;
+			onewire0.delay_count = 3125;
+			_pullhigh();
+			onewire0.state = OW0_CONVERT_DELAY;
+			break;
+
+		case OW0_CONVERT_DELAY:
+			if (! --onewire0.delay_count) {
+				// Delay is finished; setup the next interrupt in 20 us
+				OCR0A = IDLE_DELAY - 1;
+				_release();
+				onewire0.state = OW0_IDLE;
+			}
+			break;
 	}
 
 
@@ -665,8 +683,8 @@ void onewire0_matchrom(struct onewire_id *dev) {
 void onewire0_convert(void) {
 	onewire0_writebyte(0x44);
 	while (onewire0.state != OW0_IDLE) { }
-	_pullhigh();
-	// Now sleep for at least 750 ms, with a strong pullup to power the conversion
+	// Start a 750 ms delay, with a strong pullup to power the chips
+	onewire0.state = OW0_CONVERT;
 }
 
 // Issue a "Skip Rom" command before "Convert T". This tells all devices to start a
