@@ -25,6 +25,8 @@
 #define RESET_PRESCALER ( 0<<CS02 | 1<<CS01 | 1<<CS00 )
 // For long delays, use CLKio/1024 (32 us resolution)
 #define DELAY_PRESCALER ( 1<<CS02 | 0<<CS01 | 1<<CS00 )
+// When device is idle, interrupt every IDLE_DELAY us
+#define IDLE_DELAY 20
 #else
 #error "Only CPU_FREQ of 8 MHz is presently supported"
 #endif

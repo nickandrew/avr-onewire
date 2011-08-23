@@ -29,7 +29,7 @@ static void _starttimer(void)
 	TCNT0 = 0;
 
 	// Initially, interrupt once every 20us
-	OCR0A = 20 - 1;
+	OCR0A = IDLE_DELAY - 1;
 
 	// OCR0B is not used
 	OCR0B = 0xff;
@@ -496,7 +496,7 @@ ISR(TIMER0_COMPA_vect)
 	switch(onewire0.state) {
 		case OW0_IDLE:
 			// Wait 20us until the next interrupt
-			OCR0A = 20 - 1;
+			OCR0A = IDLE_DELAY - 1;
 			break;
 
 		case OW0_START:
@@ -589,7 +589,7 @@ ISR(TIMER0_COMPA_vect)
 
 		case OW0_RESET3:
 			// Speed up the prescaler again, go to idle state with 20us between interrupts
-			OCR0A = 20 - 1;
+			OCR0A = IDLE_DELAY - 1;
 			_fasttimer();
 			onewire0.state = OW0_IDLE;
 			break;
@@ -615,7 +615,7 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_DELAY:
 			if (! --onewire0.delay_count) {
 				// Delay is finished; setup the next interrupt in 20 us
-				OCR0A = 20 - 1;
+				OCR0A = IDLE_DELAY - 1;
 				_fasttimer();
 				onewire0.state = OW0_IDLE;
 			}
