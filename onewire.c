@@ -9,6 +9,34 @@
 
 #include <stdint.h>
 
+/*
+** ---------------------------------------------------------------------------
+** Pin and speed definitions
+** ---------------------------------------------------------------------------
+*/
+
+// Specify the single I/O pin
+#ifndef PIN
+#define PIN ( 1 << PORTB0 )
+#endif
+
+#ifndef CPU_FREQ
+#define CPU_FREQ 8000000
+#endif
+
+#if CPU_FREQ == 8000000
+// Prescaler CLKio/8 = 1 us resolution
+#define PRESCALER ( 1<<CS01 )
+// When resetting the devices, use CLKio/64 (8 us resolution)
+#define RESET_PRESCALER ( 0<<CS02 | 1<<CS01 | 1<<CS00 )
+// For long delays, use CLKio/1024 (32 us resolution)
+#define DELAY_PRESCALER ( 1<<CS02 | 0<<CS01 | 1<<CS00 )
+// When device is idle, interrupt every IDLE_DELAY us
+#define IDLE_DELAY 20
+#else
+#error "Only CPU_FREQ of 8 MHz is presently supported"
+#endif
+
 #include "onewire.h"
 
 struct onewire onewire0;
