@@ -87,8 +87,10 @@ extern uint8_t onewire0_reset(void);
 extern uint8_t onewire0_search(void);
 extern void    onewire0_writebyte(uint8_t byte);
 extern uint8_t onewire0_isidle(void);
+extern uint8_t onewire0_state(void);
 
 // Delay functions
+extern void    onewire0_convertdelay(void);
 extern void    onewire0_delay1(uint8_t ocr0a, uint16_t usec1);
 extern void    onewire0_delay8(uint8_t ocr0a, uint16_t usec8);
 extern void    onewire0_delay128(uint8_t ocr0a, uint16_t usec128);
@@ -96,5 +98,9 @@ extern void    onewire0_delay128(uint8_t ocr0a, uint16_t usec128);
 // OneWire high level functions
 
 extern void    onewire0_readrom(struct onewire_id *buf);
+extern void    onewire0_matchrom(struct onewire_id *buf);
+extern void    onewire0_skiprom(void);
+extern void    onewire0_convert(void);
+extern void    onewire0_readscratchpad(void);
 
 #endif

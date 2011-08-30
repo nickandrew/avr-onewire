@@ -680,6 +680,13 @@ uint8_t onewire0_isidle(void) {
 	return (onewire0.state == OW0_IDLE);
 }
 
+/* Return current device state. This is used for debugging.
+*/
+
+uint8_t onewire0_state(void) {
+	return onewire0.state;
+}
+
 /*
 **  High Level Functions
 */
@@ -706,21 +713,24 @@ void onewire0_matchrom(struct onewire_id *dev) {
 	}
 }
 
+void onewire0_skiprom(void) {
+	onewire0_writebyte(0xcc);
+}
+
+void onewire0_readscratchpad(void) {
+	onewire0_writebyte(0xbe);
+}
+
 // Issue 0x44, "Convert T".
 
 void onewire0_convert(void) {
 	onewire0_writebyte(0x44);
+}
+
+void    onewire0_convertdelay(void) {
 	while (onewire0.state != OW0_IDLE) { }
 	// Start a 750 ms delay, with a strong pullup to power the chips
 	onewire0.state = OW0_CONVERT;
-}
-
-// Issue a "Skip Rom" command before "Convert T". This tells all devices to start a
-// temperature conversion.
-
-void onewire0_convertall(void) {
-	onewire0_writebyte(0xcc);
-	onewire0_convert();
 }
 
 void onewire0_writescratch(char *scratch) {
@@ -730,16 +740,6 @@ void onewire0_writescratch(char *scratch) {
 
 	for (byte_id = 0; byte_id < 3; ++byte_id) {
 		onewire0_writebyte(*scratch++);
-	}
-}
-
-void onewire0_readscratch(char *scratch) {
-	uint8_t  byte_id;
-
-	onewire0_writebyte(0xbe);
-
-	for (byte_id = 0; byte_id < 3; ++byte_id) {
-		*scratch++ = onewire0_readbyte();
 	}
 }
 
