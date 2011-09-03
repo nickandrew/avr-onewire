@@ -80,6 +80,18 @@ struct onewire_id {
 	uint8_t device_id[8];
 };
 
+struct onewire_scratchpad {
+	uint8_t temp_lsb;
+	uint8_t temp_msb;
+	uint8_t t_h;
+	uint8_t t_l;
+	uint8_t config;
+	uint8_t reserved_1;
+	uint8_t reserved_2;
+	uint8_t reserved_3;
+	uint8_t crc;
+};
+
 extern void    onewire0_init(void);
 extern void    onewire0_poll(void);
 extern uint8_t onewire0_readbyte(void);
