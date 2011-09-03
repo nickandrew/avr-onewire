@@ -80,7 +80,6 @@ struct onewire_search {
 	volatile uint8_t last_discrepancy;
 	volatile uint8_t last_family_discrepancy;
 	volatile uint8_t last_device_flag;
-	volatile uint8_t id_bit_number;
 	volatile uint8_t last_zero;
 };
 

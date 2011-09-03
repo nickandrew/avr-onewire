@@ -407,6 +407,7 @@ static inline void _resetsearch(void)
 uint8_t onewire0_search(void)
 {
 	uint8_t i;
+	uint8_t id_bit_number = 1;
 
 	for (i = 0; i < 8; ++i) {
 		search0.device_id[i] = 0;
@@ -417,12 +418,11 @@ uint8_t onewire0_search(void)
 		return 0;
 	}
 
-	search0.id_bit_number = 1;
 	search0.last_zero = 0;
 
 	onewire0_writebyte(0xf0);
 
-	while (search0.id_bit_number <= 64) {
+	while (id_bit_number <= 64) {
 		uint8_t search_direction;
 
 		_read2();
@@ -441,19 +441,19 @@ uint8_t onewire0_search(void)
 		}
 
 		if (i == 0x00) {
-			if (search0.id_bit_number == search0.last_discrepancy) {
+			if (id_bit_number == search0.last_discrepancy) {
 				search_direction = 1;
 			}
-			else if (search0.id_bit_number > search0.last_discrepancy) {
+			else if (id_bit_number > search0.last_discrepancy) {
 				search_direction = 0;
 			}
 			else {
 				// Set search_direction bit to id_bit_number bit in ROM_NO
-				search_direction = _getbit(search0.device_id, search0.id_bit_number);
+				search_direction = _getbit(search0.device_id, id_bit_number);
 			}
 
 			if (search_direction == 0) {
-				search0.last_zero = search0.id_bit_number;
+				search0.last_zero = id_bit_number;
 				if (search0.last_zero < 9) {
 					search0.last_family_discrepancy = search0.last_zero;
 				}
@@ -462,10 +462,10 @@ uint8_t onewire0_search(void)
 			search_direction = (i & 0x40) ? 1 : 0;
 		}
 
-		_setbit(search0.device_id, search0.id_bit_number, search_direction);
+		_setbit(search0.device_id, id_bit_number, search_direction);
 		_writebit(search_direction);
 
-		search0.id_bit_number ++;
+		id_bit_number ++;
 	}
 
 	search0.last_discrepancy = search0.last_zero;
