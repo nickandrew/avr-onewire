@@ -138,7 +138,7 @@ static uint8_t _getbit(volatile uint8_t *cp, uint8_t bit_id)
 	bit_id --;
 	// Point to the containing byte
 	cp += (bit_id >> 3);
-	bit_mask = 1 << bit_id;
+	bit_mask = 1 << (bit_id & 0x07);
 	if (*cp & bit_mask) {
 		return 1;
 	}
@@ -156,7 +156,7 @@ static void _setbit(volatile uint8_t *cp, uint8_t bit_id, uint8_t value)
 	bit_id --;
 	// Point to the containing byte
 	cp += (bit_id >> 3);
-	bit_mask = 1 << bit_id;
+	bit_mask = 1 << (bit_id & 0x07);
 	if (value) {
 		*cp |= bit_mask;
 	} else {
@@ -418,7 +418,7 @@ uint8_t onewire0_search(void)
 	search0.id_bit_number = 1;
 	search0.last_zero = 0;
 
-	onewire0_writebyte(0x0f);
+	onewire0_writebyte(0xf0);
 
 	while (search0.id_bit_number <= 64) {
 		uint8_t search_direction;
