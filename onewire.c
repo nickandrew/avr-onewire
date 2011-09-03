@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 
+#include "maxim-crc8.h"
+
 /*
 ** ---------------------------------------------------------------------------
 ** Pin and speed definitions
@@ -689,7 +691,7 @@ uint8_t onewire0_state(void) {
 */
 
 void onewire0_readrom(struct onewire_id *buf) {
-	uint8_t  *cp = (uint8_t *) buf;
+	uint8_t  *cp = buf->device_id;
 	uint8_t  byte_id;
 
 	onewire0_writebyte(0x33);
@@ -700,7 +702,7 @@ void onewire0_readrom(struct onewire_id *buf) {
 }
 
 void onewire0_matchrom(struct onewire_id *dev) {
-	uint8_t  *buf = (uint8_t *) dev;
+	uint8_t  *buf = dev->device_id;
 	uint8_t  byte_id;
 
 	onewire0_writebyte(0x55);
@@ -744,4 +746,23 @@ uint8_t onewire0_readpower(void) {
 	onewire0_writebyte(0xb4);
 
 	return _readbit();
+}
+
+uint8_t onewire0_get_family_code(struct onewire_id *dev) {
+	return dev->device_id[0];
+}
+
+/*  Check an array of bytes using the Maxim 8-bit CRC algorithm.
+**  The last byte must be the expected CRC to make the final
+**  result zero.
+*/
+
+uint8_t onewire0_check_crc(uint8_t *cp, uint8_t length) {
+	uint8_t crc = 0x00;
+
+	while (length--) {
+		crc = crc8_update(crc, *cp++);
+	}
+
+	return crc;
 }

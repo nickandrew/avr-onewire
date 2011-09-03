@@ -67,8 +67,13 @@ struct onewire {
 	volatile enum onewire0_process process;
 	volatile uint8_t ocr0a;
 	volatile uint16_t delay_count;
-	// These are for the device ID search algorithm
 };
+
+struct onewire_id {
+	uint8_t device_id[8];
+};
+
+// These are for the device ID search algorithm
 
 struct onewire_search {
 	volatile uint8_t device_id[8];
@@ -77,12 +82,6 @@ struct onewire_search {
 	volatile uint8_t last_device_flag;
 	volatile uint8_t id_bit_number;
 	volatile uint8_t last_zero;
-};
-
-struct onewire_id {
-	uint8_t family_code;
-	uint8_t device_id[6];
-	uint8_t crc;
 };
 
 struct onewire_scratchpad {
@@ -119,5 +118,7 @@ extern void    onewire0_matchrom(struct onewire_id *buf);
 extern void    onewire0_skiprom(void);
 extern void    onewire0_convert(void);
 extern void    onewire0_readscratchpad(void);
+extern uint8_t onewire0_get_family_code(struct onewire_id *dev);
+extern uint8_t onewire0_check_crc(uint8_t *cp, uint8_t length);
 
 #endif
