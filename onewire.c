@@ -166,13 +166,6 @@ static void _setbit(volatile uint8_t *cp, uint8_t bit_id, uint8_t value)
 	}
 }
 
-// Calculate an 8-bit CRC for a 1wire device_id
-// Return 1 if correct, 0 if wrong.
-
-uint8_t _checkCRC(volatile uint8_t *cp) {
-	return 1;
-}
-
 void onewire0_init(void)
 {
 	onewire0.state = OW0_IDLE;
@@ -474,7 +467,8 @@ uint8_t onewire0_search(void)
 		search0.last_device_flag = 1;
 	}
 
-	if (! _checkCRC(search0.device_id)) {
+	if (onewire0_check_crc((uint8_t *) search0.device_id, sizeof(search0.device_id))) {
+		// Device ID fails CRC check; start over
 		_resetsearch();
 		return 0;
 	}
