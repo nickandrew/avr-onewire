@@ -40,6 +40,7 @@
 #include "onewire.h"
 
 struct onewire onewire0;
+struct onewire_search search0;
 
 static void _starttimer(void)
 {
@@ -388,9 +389,9 @@ void onewire0_delay128(uint8_t ocr0a, uint16_t usec128) {
 // Reset search
 static inline void _resetsearch(void)
 {
-		onewire0.last_discrepancy = 0;
-		onewire0.last_family_discrepancy = 0;
-		onewire0.last_device_flag = 0;
+		search0.last_discrepancy = 0;
+		search0.last_family_discrepancy = 0;
+		search0.last_device_flag = 0;
 }
 
 /*  uint8_t onewire0_search(void)
@@ -406,20 +407,20 @@ uint8_t onewire0_search(void)
 	uint8_t i;
 
 	for (i = 0; i < 8; ++i) {
-		onewire0.device_id[i] = 0;
+		search0.device_id[i] = 0;
 	}
 
-	if (!onewire0_reset() || onewire0.last_device_flag) {
+	if (!onewire0_reset() || search0.last_device_flag) {
 		_resetsearch();
 		return 0;
 	}
 
-	onewire0.id_bit_number = 1;
-	onewire0.last_zero = 0;
+	search0.id_bit_number = 1;
+	search0.last_zero = 0;
 
 	onewire0_writebyte(0x0f);
 
-	while (onewire0.id_bit_number <= 64) {
+	while (search0.id_bit_number <= 64) {
 		uint8_t search_direction;
 
 		_read2();
@@ -438,40 +439,40 @@ uint8_t onewire0_search(void)
 		}
 
 		if (i == 0x00) {
-			if (onewire0.id_bit_number == onewire0.last_discrepancy) {
+			if (search0.id_bit_number == search0.last_discrepancy) {
 				search_direction = 1;
 			}
-			else if (onewire0.id_bit_number > onewire0.last_discrepancy) {
+			else if (search0.id_bit_number > search0.last_discrepancy) {
 				search_direction = 0;
 			}
 			else {
 				// Set search_direction bit to id_bit_number bit in ROM_NO
-				search_direction = _getbit(onewire0.device_id, onewire0.id_bit_number);
+				search_direction = _getbit(search0.device_id, search0.id_bit_number);
 			}
 
 			if (search_direction == 0) {
-				onewire0.last_zero = onewire0.id_bit_number;
-				if (onewire0.last_zero < 9) {
-					onewire0.last_family_discrepancy = onewire0.last_zero;
+				search0.last_zero = search0.id_bit_number;
+				if (search0.last_zero < 9) {
+					search0.last_family_discrepancy = search0.last_zero;
 				}
 			}
 		} else {
 			search_direction = (i & 0x40) ? 1 : 0;
 		}
 
-		_setbit(onewire0.device_id, onewire0.id_bit_number, search_direction);
+		_setbit(search0.device_id, search0.id_bit_number, search_direction);
 		_writebit(search_direction);
 
-		onewire0.id_bit_number ++;
+		search0.id_bit_number ++;
 	}
 
-	onewire0.last_discrepancy = onewire0.last_zero;
+	search0.last_discrepancy = search0.last_zero;
 
-	if (onewire0.last_discrepancy == 0) {
-		onewire0.last_device_flag = 1;
+	if (search0.last_discrepancy == 0) {
+		search0.last_device_flag = 1;
 	}
 
-	if (! _checkCRC(onewire0.device_id)) {
+	if (! _checkCRC(search0.device_id)) {
 		_resetsearch();
 		return 0;
 	}

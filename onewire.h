@@ -68,6 +68,9 @@ struct onewire {
 	volatile uint8_t ocr0a;
 	volatile uint16_t delay_count;
 	// These are for the device ID search algorithm
+};
+
+struct onewire_search {
 	volatile uint8_t device_id[8];
 	volatile uint8_t last_discrepancy;
 	volatile uint8_t last_family_discrepancy;
