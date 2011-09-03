@@ -80,7 +80,9 @@ struct onewire_search {
 };
 
 struct onewire_id {
-	uint8_t device_id[8];
+	uint8_t family_code;
+	uint8_t device_id[6];
+	uint8_t crc;
 };
 
 struct onewire_scratchpad {
