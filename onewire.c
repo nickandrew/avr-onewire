@@ -607,7 +607,7 @@ ISR(TIMER0_COMPA_vect)
 
 		case OW0_RESET2:
 			// Sample the bus, slow the prescaler down again and wait 408us
-			onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
+			onewire0.current_byte = ((PINB & (PIN)) ? 0x80 : 0);
 			onewire0.ocr0a = GAP_J - 1;
 			_medtimer();
 			onewire0.state = OW0_RESET3;
