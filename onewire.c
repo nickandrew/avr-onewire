@@ -690,7 +690,7 @@ uint8_t onewire0_state(void) {
 */
 
 void onewire0_readrom(struct onewire_id *buf) {
-	uint8_t  *cp = buf->device_id;
+	uint8_t  *cp = (uint8_t *) buf;
 	uint8_t  byte_id;
 
 	onewire0_writebyte(0x33);
@@ -701,7 +701,7 @@ void onewire0_readrom(struct onewire_id *buf) {
 }
 
 void onewire0_matchrom(struct onewire_id *dev) {
-	uint8_t  *buf = dev->device_id;
+	uint8_t  *buf = (uint8_t *) dev;
 	uint8_t  byte_id;
 
 	onewire0_writebyte(0x55);
