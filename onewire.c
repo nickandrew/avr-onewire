@@ -601,7 +601,6 @@ ISR(TIMER0_COMPA_vect)
 			// Release the bus, speed up the prescaler and wait for 9us
 			_release();
 			OCR0A = GAP_I - 1;
-			_fasttimer();
 			onewire0.state = OW0_RESET2;
 			break;
 

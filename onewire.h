@@ -20,8 +20,8 @@
 **  GAP_F    Read bit after sampling
 **  GAP_G    Reset devices initial delay (zero so not used)
 **  GAP_H    Reset devices bus low (divided by 8)
-**  GAP_I    Reset devices release bus
-**  GAP_J    Reset devices delay after sampling
+**  GAP_I    Reset devices release bus (divided by 8)
+**  GAP_J    Reset devices delay after sampling (divided by 8)
 */
 
 #define GAP_A  6
