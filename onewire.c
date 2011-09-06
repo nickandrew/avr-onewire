@@ -19,7 +19,7 @@
 
 // Specify the single I/O pin
 #ifndef PIN
-#define PIN ( 1 << PORTB0 )
+#define PIN ( 1 << PORTB4 )
 #endif
 
 #ifndef CPU_FREQ
