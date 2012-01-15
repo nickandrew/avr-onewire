@@ -15,7 +15,6 @@
 struct onewire_id device_id;
 
 // Connect a logic analyzer to these pins for tracing execution and timing
-#define DPINA  (1 << PORTB1)
 #define DPINB  (1 << PORTB2)
 #define DPINC  (1 << PORTB3)
 
@@ -34,12 +33,8 @@ void set_cpu_8mhz(void) {
 // Set all trace pins to output mode
 void init_trace(void)
 {
-	DDRB |= DPINA | DPINB | DPINC;
-	PORTB &= ~( DPINA | DPINB | DPINC );
-}
-
-void set_a(void) {
-	PORTB |= DPINA;
+	DDRB |= DPINB | DPINC;
+	PORTB &= ~( DPINB | DPINC );
 }
 
 void set_b(void) {
@@ -50,20 +45,12 @@ void set_c(void) {
 	PORTB |= DPINC;
 }
 
-void toggle_a(void) {
-	PORTB ^= DPINA;
-}
-
 void toggle_b(void) {
 	PORTB ^= DPINB;
 }
 
 void toggle_c(void) {
 	PORTB ^= DPINC;
-}
-
-void clr_a(void) {
-	PORTB &= ~DPINA;
 }
 
 void clr_b(void) {
@@ -87,35 +74,47 @@ int main(void) {
 	sei();
 
 	while (1) {
-		toggle_a();
+		toggle_b();
 
-		// set_b();
 		rc = onewire0_reset();
-		// clr_b();
 
-
+		set_c();
 		onewire0_readrom(&device_id);
+		toggle_c();
+
+		// Issue skip rom command
+		onewire0_skiprom();
+		toggle_c();
 
 		// Start a temperature conversion
-		onewire0_skiprom();
 		onewire0_convert();
+		toggle_c();
+
+		// Setup a delay
 		onewire0_convertdelay();
+		toggle_c();
 
 
 		// Wait until it is finished
 		while (! onewire0_isidle()) { }
-		clr_b();
+		toggle_c();
+
 		onewire0_reset();
+		toggle_c();
+
 		onewire0_skiprom();
-		set_b();
+		toggle_c();
+
 		onewire0_readscratchpad();
+		toggle_c();
+
 		for (bytes = 0; bytes < 9; ++bytes) {
 			onewire0_readbyte();
 		}
-		clr_b();
+		toggle_c();
 
 		while (! onewire0_isidle()) { }
+		toggle_c();
 
 	}
 }
-
