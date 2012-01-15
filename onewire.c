@@ -22,6 +22,11 @@
 #define PIN ( 1 << PORTB4 )
 #endif
 
+// Strong pullup is on PORTB1 (active low)
+#ifndef ONEWIRE_STRONG_PIN
+#define ONEWIRE_STRONG_PIN     (PORTB1)
+#endif
+
 #ifndef CPU_FREQ
 #define CPU_FREQ 8000000
 #endif
@@ -166,37 +171,58 @@ static void _setbit(volatile uint8_t *cp, uint8_t bit_id, uint8_t value)
 	}
 }
 
+// Set a strong pullup on the 1-wire bus (active low)
+
+inline void _enable_strong(void)
+{
+	PORTB &= ~(1 << ONEWIRE_STRONG_PIN);
+}
+
+// Disable a strong pullup (active low)
+
+inline void _disable_strong(void) {
+	PORTB |= (1 << ONEWIRE_STRONG_PIN);
+}
+
+// Reset search
+static inline void _resetsearch(void)
+{
+	search0.last_discrepancy = 0;
+	search0.last_family_discrepancy = 0;
+	search0.last_device_flag = 0;
+
+	for (uint8_t i = 0; i < 8; ++i) {
+		search0.device_id[i] = 0;
+	}
+}
+
 void onewire0_init(void)
 {
 	onewire0.state = OW0_IDLE;
 	onewire0.process = OW0_PIDLE;
+	_resetsearch();
 
+	// Setup pullup pin, mode output, initially disabled
+	DDRB |= (1 << ONEWIRE_STRONG_PIN);
+	_disable_strong();
 	// Setup I/O pin, initial tri-state, when enabled output low
-	DDRB &= ~( PIN );
-	PORTB &= ~( PIN );
+	DDRB &= ~( PIN );   // Set pin mode to input
+	PORTB &= ~( PIN );  // Disable weak pullup
 	_starttimer();
 }
 
 inline void _release(void)
 {
+	_disable_strong();
 	PORTB &= ~( PIN );  // Disable weak pullup
 	DDRB &= ~( PIN );   // Set pin mode to input
 }
 
 inline void _pulllow(void)
 {
+	_disable_strong();
 	// PORTB is expected to be low at this point
 	DDRB |= PIN;
-}
-
-// Set a strong pullup on the 1-wire bus: pin set to output, logic high.
-// The pullup is obviously limited to the current sourcing capacity of the ATTiny85 (40mA).
-// A call to _pullhigh() must be followed by _release before calling _pulllow().
-
-inline void _pullhigh(void)
-{
-	PORTB |= PIN;       // Output high
-	DDRB |= PIN;        // Set pin mode to output
 }
 
 static void _wait(void)
@@ -381,14 +407,6 @@ void onewire0_delay128(uint8_t ocr0a, uint16_t usec128) {
 	onewire0.state = OW0_DELAY128US;
 }
 
-// Reset search
-static inline void _resetsearch(void)
-{
-		search0.last_discrepancy = 0;
-		search0.last_family_discrepancy = 0;
-		search0.last_device_flag = 0;
-}
-
 /*  uint8_t onewire0_search(void)
 **
 **  Initiate a 1wire device number search algorithm,
@@ -401,10 +419,6 @@ uint8_t onewire0_search(void)
 {
 	uint8_t i;
 	uint8_t id_bit_number = 1;
-
-	for (i = 0; i < 8; ++i) {
-		search0.device_id[i] = 0;
-	}
 
 	if (!onewire0_reset() || search0.last_device_flag) {
 		_resetsearch();
@@ -649,9 +663,10 @@ ISR(TIMER0_COMPA_vect)
 		case OW0_CONVERT:
 			// Program a 750 ms delay
 			// 750ms = 1 us * 240 * 3125
-			OCR0A = 239;
-			onewire0.delay_count = 3125;
-			_pullhigh();
+			// 1000ms = 1 us * 250 * 4000
+			OCR0A = 249;
+			onewire0.delay_count = 4000;
+			_enable_strong();
 			onewire0.state = OW0_CONVERT_DELAY;
 			break;
 
@@ -722,6 +737,8 @@ void onewire0_convert(void) {
 
 void    onewire0_convertdelay(void) {
 	while (onewire0.state != OW0_IDLE) { }
+	// Start the strong pullup (will be reset on next call to _pulllow)
+	_enable_strong();
 	// Start a 750 ms delay, with a strong pullup to power the chips
 	onewire0.state = OW0_CONVERT;
 }
