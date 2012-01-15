@@ -563,8 +563,6 @@ ISR(TIMER0_COMPA_vect)
 
 				// shift byte then sample the signal
 				onewire0.current_byte = (onewire0.current_byte >> 1) | ((PINB & (PIN)) ? 0x80 : 0);
-				// onewire0.current_byte >>= 1;
-				// onewire0.current_byte |= ((PINB & (PIN)) ? 0x80 : 0);
 				_nextbit();
 			} else {
 				// Write a 0-bit
