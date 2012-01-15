@@ -12,6 +12,8 @@
 
 #include "onewire.h"
 
+struct onewire_id device_id;
+
 // Connect a logic analyzer to these pins for tracing execution and timing
 #define DPINA  (1 << PORTB1)
 #define DPINB  (1 << PORTB2)
@@ -74,6 +76,7 @@ void clr_c(void) {
 
 int main(void) {
 	uint8_t rc;
+	uint8_t bytes;
 
 	cli();
 	set_cpu_8mhz();
@@ -90,57 +93,28 @@ int main(void) {
 		rc = onewire0_reset();
 		// clr_b();
 
+
+		onewire0_readrom(&device_id);
+
+		// Start a temperature conversion
+		onewire0_skiprom();
+		onewire0_convert();
+		onewire0_convertdelay();
+
+
+		// Wait until it is finished
+		while (! onewire0_isidle()) { }
+		clr_b();
+		onewire0_reset();
+		onewire0_skiprom();
 		set_b();
-		onewire0_writebyte(0x00);
-		while (! onewire0_isidle()) { }
-		toggle_b();
-
-		onewire0_writebyte(0x00);
-		while (! onewire0_isidle()) { }
-		toggle_b();
-
-		onewire0_writebyte(0x33);
-		while (! onewire0_isidle()) { }
-
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-		onewire0_readbyte();
-		toggle_b();
-
-		// Delay 1 second
-		for (rc = 0; rc < 33; ++rc) {
-//			onewire0_delay(0);
-			toggle_c();
+		onewire0_readscratchpad();
+		for (bytes = 0; bytes < 9; ++bytes) {
+			onewire0_readbyte();
 		}
-
-		// onewire0_writebyte(0x0f);
-// 		while (! onewire0_isidle()) { }
-		// toggle_b();
-// 		onewire0_writebyte(0x00);
-// 		while (! onewire0_isidle()) { }
-		// toggle_b();
-// 		onewire0_writebyte(0xff);
-// 		while (! onewire0_isidle()) { }
-		// toggle_b();
+		clr_b();
 
 		while (! onewire0_isidle()) { }
-
-		// set_c();
-		// rc = onewire0_search();
-		// clr_c();
 
 	}
 }
