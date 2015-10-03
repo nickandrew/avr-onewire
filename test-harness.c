@@ -10,7 +10,7 @@
 #include <avr/io.h>
 #include <stdint.h>
 
-#include "onewire.h"
+#include "onewire0.h"
 
 struct onewire_id device_id;
 

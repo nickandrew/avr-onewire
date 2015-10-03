@@ -44,7 +44,7 @@
 #error "Only CPU_FREQ of 8 MHz is presently supported"
 #endif
 
-#include "onewire.h"
+#include "onewire0.h"
 
 struct onewire onewire0;
 struct onewire_search search0;
